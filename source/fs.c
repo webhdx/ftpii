@@ -21,6 +21,7 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+#include <ext2.h>
 #include <fat.h>
 #include <malloc.h>
 #include <ogc/lwp_watchdog.h>
@@ -38,9 +39,9 @@ misrepresented as being the original software.
 #define CACHE_SECTORS_PER_PAGE 64
 
 VIRTUAL_PARTITION VIRTUAL_PARTITIONS[] = {
-    { "SD Gecko A", "/carda", "carda", "carda:/", false, false, &__io_gcsda },
-    { "SD Gecko B", "/cardb", "cardb", "cardb:/", false, false, &__io_gcsdb },
-    { "SD2SP2", "/sd2sp2", "sd2sp2", "sd2sp2:/", false, false, &__io_gcsd2 },
+    { "SD Gecko A", "/carda", "carda", "carda:/", false, false, NULL },
+    { "SD Gecko B", "/cardb", "cardb", "cardb:/", false, false, NULL },
+    { "SD2SP2", "/sd2sp2", "sd2sp2", "sd2sp2:/", false, false, NULL },
 };
 const u32 MAX_VIRTUAL_PARTITIONS = (sizeof(VIRTUAL_PARTITIONS) / sizeof(VIRTUAL_PARTITION));
 
@@ -94,7 +95,7 @@ bool mount(VIRTUAL_PARTITION *partition) {
         bool retry_gecko = true;
         gecko_retry:
         if (partition->disc->shutdown(partition->disc) & partition->disc->startup(partition->disc)) {
-            if (fatMount(partition->mount_point, partition->disc, 0, CACHE_PAGES, CACHE_SECTORS_PER_PAGE)) {
+            if (dvmProbeMountDiscIface(partition->mount_point, partition->disc, CACHE_PAGES, CACHE_SECTORS_PER_PAGE)) {
                 success = true;
             }
         } else if (is_gecko(partition) && retry_gecko) {
@@ -119,7 +120,14 @@ bool unmount(VIRTUAL_PARTITION *partition) {
     printf("Unmounting %s...", partition->name);
     bool success = false;
     if (is_fat(partition)) {
-        fatUnmount(partition->prefix);
+        // dvmProbeMountDiscIface mounts further partitions as <name>2 to <name>4
+        char name[16];
+        u32 i;
+        dvmUnmountVolume(partition->mount_point);
+        for (i = 2; i <= 4; i++) {
+            sprintf(name, "%s%u", partition->mount_point, i);
+            dvmUnmountVolume(name);
+        }
         success = true;
     }
     printf(success ? "succeeded.\n" : "failed.\n");
@@ -195,6 +203,13 @@ void check_mount_timer(u64 now) {
 }
 
 void initialise_fs() {
+    dvmRegisterFsDriver(&g_vfatFsDriver);
+    dvmRegisterFsDriver(&g_exfatFsDriver);
+    dvmRegisterFsDriver(&g_ext2FsDriver);
+    // Prefer MemCard PRO GC (MMCE) where present, otherwise SD Gecko / SD2SP2
+    PA_GCSDA->disc = get_io_gcsda();
+    PA_GCSDB->disc = get_io_gcsdb();
+    PA_GCSD2->disc = get_io_gcsd2();
     // Selects the SD2SP2 EXI device (device 2 when a W5500 shares the port) so isInserted() works
     PA_GCSD2->disc->startup(PA_GCSD2->disc);
 }
