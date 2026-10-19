@@ -13,6 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install libdvm-ideexi
+        run: |
+          dkp-pacman-key --recv-keys 39F617B9EF0FE021F027D9DC00A759785C24BCCF --keyserver keyserver.ubuntu.com
+          dkp-pacman-key --lsign-key 39F617B9EF0FE021F027D9DC00A759785C24BCCF
+          # pacman's free space check fails inside containers
+          sed -i 's/^CheckSpace/#CheckSpace/' /opt/devkitpro/pacman/etc/pacman.conf
+          printf '\n[webhdx-devkitpro]\nServer = https://packages.webhdx.dev\n' >> /opt/devkitpro/pacman/etc/pacman.conf
+          dkp-pacman -Sy --noconfirm libogc2-libdvm-ideexi-git
+
       - name: Build
         run: make
 

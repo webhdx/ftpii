@@ -23,6 +23,7 @@ misrepresented as being the original software.
 */
 #include <ext2.h>
 #include <fat.h>
+#include <ideexi.h>
 #include <malloc.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
@@ -42,12 +43,18 @@ VIRTUAL_PARTITION VIRTUAL_PARTITIONS[] = {
     { "SD Gecko A", "/carda", "carda", "carda:/", false, false, NULL },
     { "SD Gecko B", "/cardb", "cardb", "cardb:/", false, false, NULL },
     { "SD2SP2", "/sd2sp2", "sd2sp2", "sd2sp2:/", false, false, NULL },
+    { "IDE-EXI A", "/ataa", "ataa", "ataa:/", false, false, &__io_ataa },
+    { "IDE-EXI B", "/atab", "atab", "atab:/", false, false, &__io_atab },
+    { "M.2 Loader", "/atac", "atac", "atac:/", false, false, &__io_atac },
 };
 const u32 MAX_VIRTUAL_PARTITIONS = (sizeof(VIRTUAL_PARTITIONS) / sizeof(VIRTUAL_PARTITION));
 
 VIRTUAL_PARTITION *PA_GCSDA   = VIRTUAL_PARTITIONS + 0;
 VIRTUAL_PARTITION *PA_GCSDB   = VIRTUAL_PARTITIONS + 1;
 VIRTUAL_PARTITION *PA_GCSD2   = VIRTUAL_PARTITIONS + 2;
+VIRTUAL_PARTITION *PA_ATAA    = VIRTUAL_PARTITIONS + 3;
+VIRTUAL_PARTITION *PA_ATAB    = VIRTUAL_PARTITIONS + 4;
+VIRTUAL_PARTITION *PA_ATAC    = VIRTUAL_PARTITIONS + 5;
 
 static VIRTUAL_PARTITION *to_virtual_partition(const char *virtual_prefix) {
     u32 i;
@@ -61,8 +68,12 @@ static bool is_gecko(VIRTUAL_PARTITION *partition) {
     return partition == PA_GCSDA || partition == PA_GCSDB || partition == PA_GCSD2;
 }
 
+static bool is_ata(VIRTUAL_PARTITION *partition) {
+    return partition == PA_ATAA || partition == PA_ATAB || partition == PA_ATAC;
+}
+
 static bool is_fat(VIRTUAL_PARTITION *partition) {
-    return is_gecko(partition);
+    return is_gecko(partition) || is_ata(partition);
 }
 
 bool mounted(VIRTUAL_PARTITION *partition) {
@@ -77,7 +88,8 @@ bool mounted(VIRTUAL_PARTITION *partition) {
 static bool was_inserted_or_removed(VIRTUAL_PARTITION *partition) {
     if (!partition->disc || partition->geckofail) return false;
     bool already_inserted = partition->inserted || mounted(partition);
-    partition->inserted = partition->disc->isInserted(partition->disc);
+    // The IDE-EXI isInserted() blocks for ~5s on an empty slot, so check the EXI ID first (v2+ only)
+    partition->inserted = (!is_ata(partition) || ide_exi_inserted(partition - PA_ATAA)) && partition->disc->isInserted(partition->disc);
     return already_inserted != partition->inserted;
 }
 
@@ -173,7 +185,7 @@ void process_remount_event() {
         printf("\nWhich device would you like to remount? (hold button on controller #1)\n\n");
         printf("           SD Gecko A (Up)\n");
         printf("                  | \n");
-        printf("                  +------- SD2SP2 (Right)\n");
+        printf("M.2 Loader (Left) +------- SD2SP2 (Right)\n");
         printf("                  | \n");
         printf("           SD Gecko B (Down)\n");
     } else if (mountstate == MOUNTSTATE_WAITFORDEVICE) {
@@ -189,6 +201,7 @@ void process_device_select_event(u32 pressed) {
         if (pressed & PAD_BUTTON_UP) mount_partition = PA_GCSDA;
         else if (pressed & PAD_BUTTON_DOWN) mount_partition = PA_GCSDB;
         else if (pressed & PAD_BUTTON_RIGHT) mount_partition = PA_GCSD2;
+        else if (pressed & PAD_BUTTON_LEFT) mount_partition = PA_ATAC;
         if (mount_partition) {
             mountstate = MOUNTSTATE_WAITFORDEVICE;
             if (is_fat(mount_partition)) unmount(mount_partition);
