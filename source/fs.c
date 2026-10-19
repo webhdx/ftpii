@@ -195,6 +195,8 @@ void check_mount_timer(u64 now) {
 }
 
 void initialise_fs() {
+    // Selects the SD2SP2 EXI device (device 2 when a W5500 shares the port) so isInserted() works
+    PA_GCSD2->disc->startup(PA_GCSD2->disc);
 }
 
 /*
