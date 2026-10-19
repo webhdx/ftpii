@@ -76,7 +76,7 @@ bool mounted(VIRTUAL_PARTITION *partition) {
 static bool was_inserted_or_removed(VIRTUAL_PARTITION *partition) {
     if (!partition->disc || partition->geckofail) return false;
     bool already_inserted = partition->inserted || mounted(partition);
-    partition->inserted = partition->disc->isInserted();
+    partition->inserted = partition->disc->isInserted(partition->disc);
     return already_inserted != partition->inserted;
 }
 
@@ -93,7 +93,7 @@ bool mount(VIRTUAL_PARTITION *partition) {
     if (is_fat(partition)) {
         bool retry_gecko = true;
         gecko_retry:
-        if (partition->disc->shutdown() & partition->disc->startup()) {
+        if (partition->disc->shutdown(partition->disc) & partition->disc->startup(partition->disc)) {
             if (fatMount(partition->mount_point, partition->disc, 0, CACHE_PAGES, CACHE_SECTORS_PER_PAGE)) {
                 success = true;
             }

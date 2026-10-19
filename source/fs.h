@@ -33,7 +33,7 @@ typedef struct {
     const char *prefix;
     bool inserted;
     bool geckofail;
-    const DISC_INTERFACE *disc;
+    DISC_INTERFACE *disc;
 } VIRTUAL_PARTITION;
 
 extern VIRTUAL_PARTITION VIRTUAL_PARTITIONS[3];
