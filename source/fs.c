@@ -40,11 +40,13 @@ misrepresented as being the original software.
 VIRTUAL_PARTITION VIRTUAL_PARTITIONS[] = {
     { "SD Gecko A", "/carda", "carda", "carda:/", false, false, &__io_gcsda },
     { "SD Gecko B", "/cardb", "cardb", "cardb:/", false, false, &__io_gcsdb },
+    { "SD2SP2", "/sd2sp2", "sd2sp2", "sd2sp2:/", false, false, &__io_gcsd2 },
 };
 const u32 MAX_VIRTUAL_PARTITIONS = (sizeof(VIRTUAL_PARTITIONS) / sizeof(VIRTUAL_PARTITION));
 
 VIRTUAL_PARTITION *PA_GCSDA   = VIRTUAL_PARTITIONS + 0;
 VIRTUAL_PARTITION *PA_GCSDB   = VIRTUAL_PARTITIONS + 1;
+VIRTUAL_PARTITION *PA_GCSD2   = VIRTUAL_PARTITIONS + 2;
 
 static VIRTUAL_PARTITION *to_virtual_partition(const char *virtual_prefix) {
     u32 i;
@@ -55,7 +57,7 @@ static VIRTUAL_PARTITION *to_virtual_partition(const char *virtual_prefix) {
 }
 
 static bool is_gecko(VIRTUAL_PARTITION *partition) {
-    return partition == PA_GCSDA || partition == PA_GCSDB;
+    return partition == PA_GCSDA || partition == PA_GCSDB || partition == PA_GCSD2;
 }
 
 static bool is_fat(VIRTUAL_PARTITION *partition) {
@@ -163,7 +165,7 @@ void process_remount_event() {
         printf("\nWhich device would you like to remount? (hold button on controller #1)\n\n");
         printf("           SD Gecko A (Up)\n");
         printf("                  | \n");
-        printf("                  | \n");
+        printf("                  +------- SD2SP2 (Right)\n");
         printf("                  | \n");
         printf("           SD Gecko B (Down)\n");
     } else if (mountstate == MOUNTSTATE_WAITFORDEVICE) {
@@ -178,6 +180,7 @@ void process_device_select_event(u32 pressed) {
     if (mountstate == MOUNTSTATE_SELECTDEVICE) {
         if (pressed & PAD_BUTTON_UP) mount_partition = PA_GCSDA;
         else if (pressed & PAD_BUTTON_DOWN) mount_partition = PA_GCSDB;
+        else if (pressed & PAD_BUTTON_RIGHT) mount_partition = PA_GCSD2;
         if (mount_partition) {
             mountstate = MOUNTSTATE_WAITFORDEVICE;
             if (is_fat(mount_partition)) unmount(mount_partition);
