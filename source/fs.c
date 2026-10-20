@@ -223,7 +223,7 @@ void initialise_fs() {
     PA_GCSDA->disc = get_io_gcsda();
     PA_GCSDB->disc = get_io_gcsdb();
     PA_GCSD2->disc = get_io_gcsd2();
-    // Selects the SD2SP2 EXI device (device 2 when a W5500 shares the port) so isInserted() works
+    // isInserted() is undefined before startup(), which also selects the SD2SP2 EXI device (device 2 when a W5500 shares the port)
     PA_GCSD2->disc->startup(PA_GCSD2->disc);
 }
 
